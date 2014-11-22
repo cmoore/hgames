@@ -1,0 +1,4 @@
+main-class = io.ivy.hgames.HGames
+name = HGames
+author = cmoore
+version = 1
