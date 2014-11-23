@@ -15,37 +15,61 @@ import net.canarymod.api.world.blocks.*;
 import net.canarymod.api.world.position.Location;
 import net.canarymod.api.world.position.Position;
 import net.canarymod.hook.HookHandler;
-import net.canarymod.hook.player.BlockRightClickHook;
-import net.canarymod.hook.player.PlayerMoveHook;
-import net.canarymod.hook.player.PlayerRespawnedHook;
+import net.canarymod.hook.player.*;
 import net.canarymod.plugin.PluginListener;
 import net.canarymod.api.entity.living.humanoid.Player;
 import net.canarymod.config.Configuration;
+import net.canarymod.api.GameMode;
+import net.canarymod.api.inventory.Item;
+import net.canarymod.hook.world.TimeChangeHook;
 
 public class HGamesListener implements PluginListener {
 	
-	private List<Chest> chests = new ArrayList<Chest>();
-	private Boolean is_running = false;
-	private List<Player> players = new ArrayList<Player>();
-	
-	@HookHandler
-	public void onPlayerRespawnedHook(PlayerRespawnedHook hook) {
-		if (in_world(hook.getPlayer().getWorld())) {
-		
-			if (in_world(hook.getPlayer().getWorld())) {
-				hook.getPlayer().getInventory().clearContents();
-				String[] game_status = {"/title @a title {text:\"" +
-						hook.getPlayer().getDisplayName() + " just joined.\",color:red}" };
-			
-				String[] sub_status = {"/title @a subtitle {text:\"Waiting for more...\",color:red}"};
-				hook.getPlayer().executeCommand(game_status);
-				hook.getPlayer().executeCommand(sub_status);
-			}
-		}
-	}
+    private List<Chest> chests = new ArrayList<Chest>();
+    private Boolean is_running = false;
+    private List<Player> players = new ArrayList<Player>();
+    
+    @HookHandler
+    public void onTimeChangeHook(TimeChangeHook hook) {
+        if (in_world(hook.getWorld())) {
+            long time = hook.getTime();
+            if (time == 0) {
+                Canary.log.info("bcast");
+                Canary.getServer().broadcastMessage("The next Hunger Games game is staring soon!");
+            }
+            if (time == 4000) {
+                Canary.log.info("bcast");
+                Canary.getServer().broadcastMessage("Hunger Games staring in two minutes!");
+            }
+            
+            if (time == 6000) {
+                Canary.log.info("bcast");
+                Canary.getServer().broadcastMessage("Hunger Games is starting now!");
+            }    
+        }
+    }
+    
+    @HookHandler
+    public void onPlayerRespawnedHook(PlayerRespawnedHook hook) {
+        if (in_world(hook.getPlayer().getWorld())) {
+            if (in_world(hook.getPlayer().getWorld())) {
+                
+                hook.getPlayer().getInventory().clearContents();
+                
+                String[] game_status = {"/title @a title {text:\"" +
+                                        hook.getPlayer().getDisplayName() + " just joined.\",color:red}" };
+                
+                String[] sub_status = {"/title @a subtitle {text:\"Waiting for more...\",color:red}"};
+                
+                hook.getPlayer().executeCommand(game_status);
+                hook.getPlayer().executeCommand(sub_status);
+            }
+        }
+    }
 
 	@HookHandler
 	public void onBlockRightClickHook(BlockRightClickHook hook) {
+      
 		if (in_world(hook.getPlayer().getWorld())) {
 			if (hook.getBlockClicked().getType().equals(BlockType.SignPost)) {
 				Sign sign = (Sign) hook.getBlockClicked().getTileEntity();
@@ -63,7 +87,12 @@ public class HGamesListener implements PluginListener {
 			}
 		}
 	}
-	
+
+    @HookHandler
+    public void onPlayerDeathHook(PlayerDeathHook hook) {
+        Canary.warps().getWarp("nevermind").warp(hook.getPlayer());
+    }
+    
 	private boolean in_world(World world) {
 		return world.getFqName().equals("hgames_NORMAL");
 	}
@@ -97,10 +126,12 @@ public class HGamesListener implements PluginListener {
 	private void make_cage(World world) {
 		draw_cage(world, BlockType.Glass);
 	}
+    
 	private void remove_cage(World world) {
 		draw_cage(world, BlockType.Air);
 		draw_box(world.getBlockAt(world.getSpawnLocation()), -1, BlockType.Grass);
 	}
+    
 	private void draw_cage(World world, BlockType type) {
 		Location worldspawn = world.getSpawnLocation();
 		Block refblock = world.getBlockAt(worldspawn);
@@ -148,40 +179,24 @@ public class HGamesListener implements PluginListener {
 		setwool(reference.getRelative(-1, y, -2), type);
 		
 	}
+    
 	private void fill_chests(World world) {
-		scan_for_chests(world);
-		ItemFactory factory = Canary.factory().getItemFactory();
-		chests.forEach(new Consumer<Chest>() {
-			@Override
-			public void accept(Chest chest) {
-				chest.clearInventory();
-				
-				/*
-				Item potion = factory.newItem(ItemType.Potion);								
-				PotionFactory potion_factory = Canary.factory().getPotionFactory();
-				PotionEffect potion_effect = potion_factory.newPotionEffect(PotionEffectType.HEAL, 0, 1);
-				PotionItemHelper.setCustomPotionEffects(potion, potion_effect);
-				chest.addItem(potion);
-				*/
-				
-				chest.addItem(factory.newItem(ItemType.IronSword));
-				chest.addItem(factory.newItem(ItemType.IronHelmet));
-				chest.addItem(factory.newItem(ItemType.IronLeggings));
-				chest.addItem(factory.newItem(ItemType.IronChestplate));
-				chest.addItem(factory.newItem(ItemType.IronBoots));
-				chest.addItem(factory.newItem(ItemType.CookedChicken, 1));
-				chest.addItem(factory.newItem(ItemType.EnderPearl));
-				
-				chest.addItem(factory.newItem(ItemType.Bow));
-				chest.addItem(factory.newItem(ItemType.Arrow));
-				
-				chest.update();
-			}
-		});
-
+      
+      scan_for_chests(world);
+      chests.forEach(new Consumer<Chest>() {
+              @Override
+              public void accept(Chest chest) {
+                  if ((1 + (int)(Math.random()*100)) < 90) {
+                      normal_chest(chest);
+                  } else {
+                      special_chest(chest);
+                  }
+              }
+          });
+      
 	}
 	
-	private void reset_everyone(World world) {
+    private void reset_everyone(World world) {
 		world.getPlayerList().forEach(new Consumer<Player>() {
 			@Override
 			public void accept(Player player) {
@@ -209,5 +224,58 @@ public class HGamesListener implements PluginListener {
               }
         });
     }
+
+    private void special_chest(Chest chest) {
+
+        Canary.log.info("Special chest!");
+        chest.clearInventory();
+        chest.addItem(ItemType.DiamondSword);
+        chest.addItem(ItemType.DiamondHelmet);
+        chest.addItem(ItemType.DiamondLeggings);
+        chest.addItem(ItemType.DiamondBoots);
+
+        chest.addItem(ItemType.CookedChicken, 10);
+        chest.addItem(ItemType.EnderPearl, 5);
+        chest.addItem(ItemType.Stick, 10);
+        chest.addItem(ItemType.Diamond, 10);
+        chest.addItem(ItemType.Bow);
+        chest.addItem(ItemType.Arrow, 20);
+        
+        chest.addItem(ItemType.LapisLazuli, 20);
+        chest.addItem(ItemType.EnchantmentTable);
+        chest.addItem(ItemType.Workbench);
+        
+        chest.update();
+    }
+    
+    private void normal_chest(Chest chest) {
+        
+        chest.clearInventory();
+				
+        chest.addItem(ItemType.IronSword);
+        
+        chest.addItem(ItemType.IronHelmet);
+        chest.addItem(ItemType.IronLeggings);
+        chest.addItem(ItemType.IronChestplate);
+        chest.addItem(ItemType.IronBoots);
+        
+        chest.addItem(ItemType.CookedChicken, 5);
+        chest.addItem(ItemType.EnderPearl);
+        chest.addItem(ItemType.Stick, 10);
+        chest.addItem(ItemType.IronIngot, 10);
+        
+        chest.addItem(ItemType.Bow);
+        chest.addItem(ItemType.Arrow, 20);
+
+        chest.addItem(ItemType.Tnt, 1);
+        chest.addItem(ItemType.RedstoneTorchOn, 1);
+        
+        chest.addItem(ItemType.LapisLazuli, 1);
+        chest.addItem(ItemType.EnchantmentTable);
+        chest.addItem(ItemType.Workbench);
+
+        chest.update();
+    }
+    
 }
 
